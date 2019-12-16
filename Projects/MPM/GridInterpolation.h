@@ -23,15 +23,15 @@ public:
         int d0 = x - baseNode + 1;
         T z = 1.5 - (T)d0;
         T z2 = z * z;
-        w[0] = 0.5 * z2;
+        w(0) = 0.5 * z2;
 
         int d1 = d0 - 1;
-        w[1] = 0.75 - d1 * d1;
+        w(1) = 0.75 - (T)d1 * (T)d1;
 
         int d2 = 1 - d1;
         T zz = 1.5 - (T)d2;
         T zz2 = zz * zz;
-        w[2] = 0.5 * zz2;
+        w(2) = 0.5 * zz2;
 
         return baseNode;
     }

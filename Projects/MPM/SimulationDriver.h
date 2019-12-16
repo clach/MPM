@@ -53,12 +53,12 @@ public:
                 //std::cout << "activeNodes.size " << activeNodes.size() << std::endl;
 
 #if DEBUG_MOMENTUM
-                TV Lg = mpm.computeGridMomentum();
-                std::cout << "Grid momentum after P2G " << Lg(0) << " " << Lg(1) << " " << Lg(2) <<std::endl;
+                TV Lg = mpm.computeGridMomentum(mpm.mg, mpm.vgn);
+                std::cout << "Grid momentum after P2G " << Lg(0) << " " << Lg(1) << " " << Lg(2) << std::endl;
 #endif
                 // compute force
                 mpm.addGravity(mpm.force, mpm.mg, activeNodes, gravity); 
-                //mpm.addElasticity(mpm.force, mpm.xp, mpm.Fp, mpm.Vp0); 
+                mpm.addElasticity(mpm.force, mpm.xp, mpm.Fp, mpm.Vp0); 
 
                 // update velocity
                 mpm.updateGridVelocity(mpm.mg, mpm.vgn, mpm.force, activeNodes, dt, mpm.vg);
@@ -67,10 +67,10 @@ public:
                 mpm.setBoundaryVelocity(3, mpm.vg);      
 
 #if DEBUG_MOMENTUM
-                Lg = mpm.computeGridMomentum();
+                Lg = mpm.computeGridMomentum(mpm.mg, mpm.vg);
                 std::cout << "Grid momentum before G2P " << Lg(0) << " " << Lg(1) << " " << Lg(2) << std::endl;
 #endif                
-                //mpm.evolveF(dt, mpm.vg, mpm.xp, mpm.Fp);
+                mpm.evolveF(dt, mpm.vg, mpm.xp, mpm.Fp);
 
                 // G2P (including particle advection)
                 mpm.transferG2P(dt, mpm.vgn, mpm.vg, 0.95, mpm.xp, mpm.vp);

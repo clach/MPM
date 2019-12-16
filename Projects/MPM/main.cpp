@@ -35,20 +35,20 @@ int main(int argc, char* argv[])
     int numGridValues = gridRes[0] * gridRes[1] * gridRes[2];
 
     // setup particle attributes
-    T E = 10000;
+    T E = 10000.0;
     T nu = 0.3;
     T mu = E / (2.0 * (1.0 + nu));
-    T lambda = E * nu / ((1 + nu) * (1 - 2 * nu));
-    T rho = 10000;
+    T lambda = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu));
+    T rho = 1000.0;
 
     // sample particles
-    std::vector<TV> startingPoints = PointCreation<T, dim>::createPoints(2, gridRes, gridMin, gridMax, false);
+    std::vector<TV> startingPoints = PointCreation<T, dim>::createPoints(5, gridRes, gridMin, gridMax, false);
 
 #if CUSTOM_MESH
     
 #else // #if CUSTOM_MESH
-    TV boxMin = TV(0.3, 0.1, 0.1);
-    TV boxMax = TV(0.5, 0.3, 0.3);
+    TV boxMin = TV(0.1, 0.1, 0.1);
+    TV boxMax = TV(0.3, 0.3, 0.3);
     std::vector<TV> xp = PointCreation<T, dim>::selectInBox(startingPoints, boxMin, boxMax);
 #endif // #else // #if CUSTOM_MESH
 
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 
     // particle initial volume
     std::vector<T> Vp0;
-    Vp0.resize(numParticles, gridDx * gridDx / 4.0);
+    Vp0.resize(numParticles, gridDx * gridDx * gridDx / 5.0);
 
     // particle mass
     std::vector<T> mp;
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
     driver.mpm.mu = mu;
     driver.mpm.lambda = lambda;
 
-    driver.run(480);
+    driver.run(240);
 
     return 0;
 }

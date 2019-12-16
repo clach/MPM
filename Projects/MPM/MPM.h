@@ -54,14 +54,14 @@ public:
     {
         // compute total particle momentum
         TV pp = TV::Zero();
-        for (int i = 0; i < numParticles; i++) 
+        for (int p = 0; p < numParticles; p++) 
         {
-            pp += mp[i] * vp[i];
+            pp += mp[p] * vp[p];
         }
         return pp;
     }
 
-    TV computeGridMomentum() const
+    TV computeGridMomentum(const std::vector<T>& mg, const std::vector<TV>& vg) const
     {
         // compute total grid momentum
         TV pg = TV::Zero();
@@ -78,39 +78,37 @@ public:
         for (int p = 0; p < numParticles; p++)
         {
             TV X = xp[p];
-            iV index;
-            index[0] = (int)(X[0] / gridDx);
-            index[1] = (int)(X[1] / gridDx);
-            index[2] = (int)(X[2] / gridDx);
+            iV index = iV((int)(X(0) / gridDx), (int)(X(1) / gridDx), (int)(X(2) / gridDx));
 
             TV wX;
             TV wY;
             TV wZ;
-            int baseNodeX = GridInterpolation<T, dim>::computeWeights1D(index[0], wX);
-            int baseNodeY = GridInterpolation<T, dim>::computeWeights1D(index[1], wY);
-            int baseNodeZ = GridInterpolation<T, dim>::computeWeights1D(index[2], wZ);
+            int baseNodeX = GridInterpolation<T, dim>::computeWeights1D(index(0), wX);
+            int baseNodeY = GridInterpolation<T, dim>::computeWeights1D(index(1), wY);
+            int baseNodeZ = GridInterpolation<T, dim>::computeWeights1D(index(2), wZ);
 
             for (int i = 0; i < dim; i++) 
             {
-                T w_i = wX[i];
+                T w_i = wX(i);
                 int node_i = baseNodeX + i;
 
                 for (int j = 0; j < dim; j++) 
                 {
-                    T w_ij = w_i * wY[j];
+                    T w_ij = w_i * wY(j);
                     int node_j = baseNodeY + j;
 
                     for (int k = 0; k < dim; k++) 
                     {
-                        T w_ijk = w_ij * wZ[k];
+                        T w_ijk = w_ij * wZ(k);
                         int node_k = baseNodeZ + k;
 
-                        // splat mass
                         int gridIndex = node_i + node_j * gridRes[0] + node_k * gridRes[0] * gridRes[1];
+
+                        // splat mass
                         mg[gridIndex] += mp[p] * w_ijk;
 
                         // splat momentum (store in vg temporarily)
-                        vgn[gridIndex] += (w_ijk * mp[p]) * vp[p];
+                        vgn[gridIndex] += mp[p] * vp[p] * w_ijk;
                     }
                 }
             }
@@ -122,7 +120,7 @@ public:
             if (mg[i] != 0) // don't need to do FP comparison
             {
                 activeNodes.push_back(i);
-                vgn[i] = vg[i] / mg[i]; // remember we stored momentum in vg 
+                vgn[i] = vgn[i] / mg[i]; // remember we stored momentum in vgn 
             } 
             else 
             {
@@ -137,15 +135,12 @@ public:
         for (int p = 0; p < numParticles; p++)
         {
             TV X = xp[p];
-            iV index;
-            index[0] = (int)(X[0] / gridDx);
-            index[1] = (int)(X[1] / gridDx);
-            index[2] = (int)(X[2] / gridDx);
+            iV index = iV((int)(X(0) / gridDx), (int)(X(1) / gridDx), (int)(X(2) / gridDx));
 
             TV wX, wY, wZ;
-            int baseNodeX = GridInterpolation<T, dim>::computeWeights1D(index[0], wX);
-            int baseNodeY = GridInterpolation<T, dim>::computeWeights1D(index[1], wY);
-            int baseNodeZ = GridInterpolation<T, dim>::computeWeights1D(index[2], wZ);
+            int baseNodeX = GridInterpolation<T, dim>::computeWeights1D(index(0), wX);
+            int baseNodeY = GridInterpolation<T, dim>::computeWeights1D(index(1), wY);
+            int baseNodeZ = GridInterpolation<T, dim>::computeWeights1D(index(2), wZ);
 
             // compute v_pic and v_flip
             TV v_pic = TV::Zero();
@@ -153,17 +148,17 @@ public:
 
             for (int i = 0; i < dim; i++) 
             {
-                T w_i = wX[i];
+                T w_i = wX(i);
                 int node_i = baseNodeX + i;
 
                 for (int j = 0; j < dim; j++) 
                 {
-                    T w_ij = w_i * wY[j];
+                    T w_ij = w_i * wY(j);
                     int node_j = baseNodeY + j;
 
                     for (int k = 0; k < dim; k++) 
                     {
-                        T w_ijk = w_ij * wZ[k];
+                        T w_ijk = w_ij * wZ(k);
                         int node_k = baseNodeZ + k;
 
                         int gridIndex = node_i + node_j * gridRes[0] + node_k * gridRes[0] * gridRes[1];
@@ -214,22 +209,21 @@ public:
         }
     }
 
-    TM fixCorotated(const TM& F) 
+    TM fixedCorotated(const TM& F) 
     {
-        TM U;
-        TM Sigma;
-        TM V;
+        TM U, Sigma, V;
         polarSVD(F, U, Sigma, V);
+
         TM R = U * V.transpose();
         TM newF = U * Sigma * V.transpose();
 
-        float J = newF.determinant();
+        T J = F.determinant();
 
         // A = (JF)^-T
-        TM A = newF.adjoint().transpose();
+        TM A = F.adjoint().transpose();
 
         // compute P = dPsi / dF
-        TM P = 2.f * mu * (newF - R) + lambda * (J - 1.f) * A;
+        TM P = 2.f * mu * (F - R) + lambda * (J - 1.f) * A;
 
         return P;
     }
@@ -240,16 +234,16 @@ public:
         for (int p = 0; p < numParticles; p++) 
         {
             TM currFp = Fp[p];
-            TM P = fixCorotated(currFp);
+            TM P = fixedCorotated(currFp);
             TM Vp0_P_FTrans = Vp0[p] * P * currFp.transpose();
 
             TV X = xp[p];
             iV index = iV((int)(X(0) / gridDx), (int)(X(1) / gridDx), (int)(X(2) / gridDx));
 
             TV wX, wY, wZ, dwX, dwY, dwZ;
-            int baseNodeX = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[0], wX, dwX);
-            int baseNodeY = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[1], wY, dwY);
-            int baseNodeZ = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[2], wZ, dwZ);
+            int baseNodeX = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(0), wX, dwX);
+            int baseNodeY = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(1), wY, dwY);
+            int baseNodeZ = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(2), wZ, dwZ);
 
             for (int i = 0; i < dim; i++) 
             {
@@ -278,7 +272,7 @@ public:
                         TV grad_w = TV(dw_ijk_dx_i, dw_ijk_dx_j, dw_ijk_dx_k);   
 
                         int gridIndex = node_i + node_j * gridRes[0] + node_k * gridRes[0] * gridRes[1];
-                        force[gridIndex] += Vp0_P_FTrans * grad_w;
+                        force[gridIndex] += -Vp0_P_FTrans * grad_w;
                     }
                 }
             }
@@ -390,12 +384,12 @@ public:
             TM grad_vp = TM::Zero();
 
             TV X = xp[p];
-            iV index = iV((int)(X[0] / gridDx), (int)(X[1] / gridDx), (int)(X[2] / gridDx));
+            iV index = iV((int)(X(0) / gridDx), (int)(X(1) / gridDx), (int)(X(2) / gridDx));
 
             TV wX, wY, wZ, dwX, dwY, dwZ;
-            int baseNodeX = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[0], wX, dwX);
-            int baseNodeY = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[1], wY, dwY);
-            int baseNodeZ = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index[2], wZ, dwZ);
+            int baseNodeX = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(0), wX, dwX);
+            int baseNodeY = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(1), wY, dwY);
+            int baseNodeZ = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(2), wZ, dwZ);
 
             for (int i = 0; i < dim; i++) 
             {
