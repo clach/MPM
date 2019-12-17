@@ -12,7 +12,7 @@
 #include "PointCreation.h"
 #include "TetToPoly.h"
 
-#define CUSTOM_MESH 0
+#define CUSTOM_MESH 1
 
 int main(int argc, char* argv[])
 {
@@ -42,10 +42,13 @@ int main(int argc, char* argv[])
     T rho = 1000.0;
 
     // sample particles
-    std::vector<TV> startingPoints = PointCreation<T, dim>::createPoints(5, gridRes, gridMin, gridMax, false);
+    std::vector<TV> startingPoints = PointCreation<T, dim>::createPoints(2, gridRes, gridMin, gridMax, false);
+    std::cout << "numParticles before cull " << startingPoints.size() << std::endl;
+
 
 #if CUSTOM_MESH
-    
+    std::vector<TV> xp = PointCreation<T, dim>::selectInMesh(startingPoints, "input/bunnyMPMinput.obj");
+
 #else // #if CUSTOM_MESH
     TV boxMin = TV(0.1, 0.1, 0.1);
     TV boxMax = TV(0.3, 0.3, 0.3);
@@ -57,7 +60,7 @@ int main(int argc, char* argv[])
 
     // particle initial volume
     std::vector<T> Vp0;
-    Vp0.resize(numParticles, gridDx * gridDx * gridDx / 5.0);
+    Vp0.resize(numParticles, gridDx * gridDx * gridDx / 2.0);
 
     // particle mass
     std::vector<T> mp;
@@ -82,7 +85,7 @@ int main(int argc, char* argv[])
     driver.mpm.Fp = Fp;
     driver.mpm.numGridValues = numGridValues;
     driver.mpm.gridRes = gridRes;
-    driver.mpm.gridDx = gridDx;
+    driver.mpm.gridDx = gridDx; 
     driver.mpm.mu = mu;
     driver.mpm.lambda = lambda;
 

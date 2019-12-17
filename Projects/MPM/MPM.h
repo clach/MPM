@@ -72,8 +72,7 @@ public:
         return pg;
     }
     
-    void transferP2G(const std::vector<TV>& xp, const std::vector<T>& mp, const std::vector<TV>& vp, 
-                    std::vector<T>& mg, std::vector<TV>& vgn, std::vector<int>& activeNodes) 
+    void transferP2G(std::vector<int>& activeNodes) 
     {
         for (int p = 0; p < numParticles; p++)
         {
@@ -129,8 +128,7 @@ public:
         }
     }
 
-    void transferG2P(T dt, const std::vector<TV>& vgn, const std::vector<TV>& vg, T flip,
-                    std::vector<TV>& xp, std::vector<TV>& vp) 
+    void transferG2P(T dt, T flip) 
     {
         for (int p = 0; p < numParticles; p++)
         {
@@ -174,8 +172,7 @@ public:
         }
     }
 
-    void addGravity(std::vector<TV>& force, const std::vector<T>& mg, 
-                    const std::vector<int>& activeNodes, const TV& gravity) 
+    void addGravity(const std::vector<int>& activeNodes, const TV& gravity) 
     {
         // add gravity to force
         for (size_t i = 0; i < activeNodes.size(); i++) {
@@ -209,7 +206,7 @@ public:
         }
     }
 
-    TM fixedCorotated(const TM& F) 
+    TM fixedCorotated(TM& F) 
     {
         TM U, Sigma, V;
         polarSVD(F, U, Sigma, V);
@@ -217,19 +214,19 @@ public:
         TM R = U * V.transpose();
         TM newF = U * Sigma * V.transpose();
 
-        T J = F.determinant();
+        T J = newF.determinant();
 
         // A = (JF)^-T
-        TM A = F.adjoint().transpose();
+        TM A = newF.adjoint().transpose();
 
         // compute P = dPsi / dF
-        TM P = 2.f * mu * (F - R) + lambda * (J - 1.f) * A;
+        TM P = 2.f * mu * (newF - R) + lambda * (J - 1.f) * A;
+        F = newF;
 
         return P;
     }
 
-    void addElasticity(std::vector<TV>& force, const std::vector<TV>& xp, 
-                    const std::vector<TM>& Fp, const std::vector<T>& Vp0) 
+    void addElasticity() 
     {
         for (int p = 0; p < numParticles; p++) 
         {
@@ -245,13 +242,13 @@ public:
             int baseNodeY = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(1), wY, dwY);
             int baseNodeZ = GridInterpolation<T, dim>::computeWeightsWithGradient1D(index(2), wZ, dwZ);
 
-            for (int i = 0; i < dim; i++) 
+            for (int i = 0; i < 3; i++) 
             {
                 T w_i = wX(i);
                 T dw_i_dx_i = dwX(i) / gridDx;
                 int node_i = baseNodeX + i;
 
-                for (int j = 0; j < dim; j++) 
+                for (int j = 0; j < 3; j++) 
                 {
                     T w_j = wY(j);
                     T w_ij = w_i * w_j;
@@ -260,7 +257,7 @@ public:
 
                     int node_j = baseNodeY + j;
 
-                    for (int k = 0; k < dim; k++) 
+                    for (int k = 0; k < 3; k++) 
                     {
                         T w_k = wZ(k);
                         T dw_ijk_dx_i = dw_ij_dx_i * w_k;
@@ -279,9 +276,7 @@ public:
         }
     }
 
-    void updateGridVelocity(const std::vector<T>& mg, const std::vector<TV>& vgn, 
-                            const std::vector<TV>& force, const std::vector<int>& activeNodes,
-                            T dt, std::vector<TV>& vg) 
+    void updateGridVelocity(const std::vector<int>& activeNodes, T dt) 
     {
         // update velocity from force
         for (size_t i = 0; i < activeNodes.size(); i++) 
@@ -290,11 +285,9 @@ public:
         }
     }
 
-    void setBoundaryVelocity(int thickness, std::vector<TV>& vg)
+    void setBoundaryVelocity(int thickness)
     {
         // set domain boundary velocities
-
-        // TODO
         // min x direction
         for (int i = 0; i < thickness; i++) 
         {
@@ -374,7 +367,7 @@ public:
         }
     }
 
-    void evolveF(T dt, const std::vector<TV>& vg, const std::vector<TV>& xp, std::vector<TM>& Fp ) 
+    void evolveF(T dt) 
     {
         for (int p = 0; p < numParticles; p++) 
         {
